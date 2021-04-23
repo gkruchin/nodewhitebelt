@@ -3,7 +3,7 @@ const EventEmitter = require('events');
 //Register a Listener:
 //.on and .addEventListener works the same way
 
-const Logger = require('./logger');
+const Logger = require('./logger'); // loading module using the require function - returns the module.exports object
 const logger = new Logger(); // We use a CUSTOM class instance, that's extended from EventEmitter class
 
 logger.on('messageLogged', (arg) => {
