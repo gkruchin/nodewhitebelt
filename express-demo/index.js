@@ -1,54 +1,61 @@
-const Joi = require('joi');
-const express = require('express');
+const startupDebugger = require("debug")("app:startup");
+const dbDebugger = require("debug")("app:db");
+const config = require("config");
+const morgan = require("morgan");
+const helmet = require("helmet");
+const Joi = require("joi");
+const logger = require("./middleware/logger");
+const courses = require("./routes/courses");
+const home = require("./routes/home");
+const express = require("express");
 const app = express();
 
-app.use(express.json());
+// console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+// console.log(`app: ${app.get("env")}`); // if above NODE_ENV is not configured, defaults to development
 
-const courses = [
-  { id: 1, name: 'course 1' },
-  { id: 2, name: 'course 2' },
-  { id: 3, name: 'course 3' }
-]
+app.set("view engine", "pug");
+app.set("views", "./views"); // default is ./views
 
-app.get('/', (req, res) => {
-  res.send('Hello WorldZ');
+app.use(express.json()); // express.json() middleware function -> // parses request body in to a json object
+//app.use(express.urlencoded()); // req.body - older traditional express middleware function for html forms req bodies, key=value&key-value
+app.use(express.urlencoded({ extended: true })); // for parsing more complicated stuff like arrays/nested obj's, etc
+app.use(express.static("public")); // for serving styling files, css, etc
+app.use(helmet()); // helmet - helps secure HTTP method
+app.use("/api/courses", courses); // for any route starts with api/courses, use the courses router object from imported^^
+app.use("/", home);
+
+//Configuration
+console.log("Application Name: " + config.get("name"));
+console.log("Mail Server: " + config.get("mail.host"));
+console.log("Mail Password: " + config.get("mail.password"));
+
+if (app.get("env") === "development") {
+  app.use(morgan("tiny"));
+  // console.log(
+  //   "Morgan is enabled... because of development environment configured on"
+  // );
+  startupDebugger("Morgan enabled...");
+}
+// morgan - helps with logging
+
+// Db work...
+dbDebugger("Connected to the database...");
+
+app.use(logger);
+
+// app.use(function (req, res, next) {
+//   console.log("Logging..."); // imagine this middleware function is for logging every request
+//   next(); // call next to pass control to the next middlware function in the pipeline
+//   // if you don't do this, because ur not terminating the request response cycle, we'll be lefting hanging
+// });
+
+app.use(function (req, res, next) {
+  console.log("Authenticating..."); // imagine this middleware function is for logging every request
+  next(); // call next to pass control to the next middlware function in the pipeline
+  // if you don't do this, because ur not terminating the request response cycle, we'll be lefting hanging
 });
- 
-app.get('/api/courses', (req, res) => {
-  res.send(courses);
-})
-
-app.post('/api/courses', (req, res) => {
-  const schema = {
-    name: Joi.string().min(3).required()
-  };
-
-  const result = Joi.validate(req.body, schema);
-  console.log(result);
-  // if (!req.body.name || req.body.name.length < 3)
-  if (result.error) {
-    // 400 Bad Request
-    res.status(400).send(result.error.details);
-    return;
-  }
-
-  const course = {
-    id: courses.length + 1,
-    name: req.body.name
-  }
-  courses.push(course);
-  res.send(course);
-})
-
-app.get('/api/courses/:id', (req, res) => {
-  const course = courses.find(c => c.id === parseInt(req.params.id));
-  if (!course) { // 404 reseponse
-    res.status(404).send('The course with the given ID was not found')
-  }
-  res.send(course);
-})
 
 // PORT
 const port = process.env.PORT || 3000;
 
-app.listen(3000, () => console.log(`Listening on port > ${port}`));
+app.listen(port, () => console.log(`Listening on port > ${port}`));
